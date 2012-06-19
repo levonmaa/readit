@@ -30,11 +30,16 @@ module Readit
 
   end
 
+  module Auth
+    OAuth = 0
+    XAuth = 1
+  end
+
   class API
     # initializer if creating a new Readit API client
     # @param access_token access_token of user
     # @param access_token_secret access_token_secret of user
-    def initialize(access_token='',access_token_secret='')
+    def initialize(access_token='',access_token_secret='',method=Readit::Auth::OAuth)
       if access_token == '' or access_token_secret == ''
         raise ReaditError.new('have to provide access_token and access_token_secret')
       end
@@ -43,11 +48,12 @@ module Readit
       end
       @access_token = access_token
       @access_token_secret = access_token_secret
+      @auth_method = method
     end
 
     attr_reader :access_token
 
-    SITE_URL = 'https://www.readability.com/'
+    SITE_URL = 'https://www.readability.com'
 
     # Retrieve the base API URI - information about subresources.
     def resource_info
@@ -168,7 +174,12 @@ module Readit
 
     private 
     def request(method,url,args={})
-      consumer = ::OAuth::Consumer.new(Readit::Config.consumer_key,Readit::Config.consumer_secret,:site=>SITE_URL)
+      consumer = nil
+      if @auth_method == Readit::Auth::OAuth
+        consumer = ::OAuth::Consumer.new(Readit::Config.consumer_key,Readit::Config.consumer_secret,:site=>SITE_URL)
+      else
+        consumer = ::OAuth::Consumer.new(Readit::Config.consumer_key, Readit::Config.consumer_secret, :site => SITE_URL, :access_token_path => '/api/rest/v1/oauth/access_token/')
+      end
       atoken = ::OAuth::AccessToken.new(consumer, @access_token, @access_token_secret)
       #response = client.send(method,"/api/rest/v1#{url}",args.merge!('oauth_token'=>@access_token,'oauth_token_secret'=>'5VEnMNPr7Q4393wxAYdnTWnpWwn7bHm4','oauth_consumer_key'=>'lidongbin','oauth_consumer_secret'=>'gvjSYqH4PLWQtQG8Ywk7wKZnEgd4xf2C'))
       response = atoken.send(method,"/api/rest/v1#{url}",args)
